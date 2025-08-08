@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdEx Neuron Model Analyzer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .subtitle {
+            text-align: center;
+            font-size: 1.2em;
+            opacity: 0.8;
+            margin-bottom: 30px;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+        }
+        
+        .control-group {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .control-group h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #ffd700;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+        
+        .input-container {
+            margin-bottom: 15px;
+        }
+        
+        .input-container label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .number-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        
+        .number-input:focus {
+            border-color: #ffd700;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+            transform: scale(1.02);
+        }
+        
+        .number-input:hover {
+            border-color: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .number-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .unit-label {
+            font-size: 0.85em;
+            color: #ffd700;
+            margin-left: 5px;
+        }
+        
+        .plots-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .plot-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .analysis-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        
+        .analysis-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .analysis-section:last-child {
+            border-bottom: none;
+        }
+        
+        .analysis-section h4 {
+            color: #ffd700;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .highlight {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        .warning {
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 AdEx Neuron Model Analyzer</h1>
+        <div class="subtitle">Interactive Analysis of Touboul & Brette (2008) Formulas</div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <h3>🔧 Membrane Properties</h3>
+                <div class="input-container">
+                    <label for="C_m">Membrane Capacitance <span class="unit-label">(pF)</span></label>
+                    <input type="number" id="C_m" class="number-input" value="200" min="50" max="500" step="10">
+                </div>
+                <div class="input-container">
+                    <label for="g_L">Leak Conductance <span class="unit-label">(nS)</span></label>
+                    <input type="number" id="g_L" class="number-input" value="10" min="1" max="50" step="0.5">
+                </div>
+                <div class="input-container">
+                    <label for="E_L">Leak Reversal Potential <span class="unit-label">(mV)</span></label>
+                    <input type="number" id="E_L" class="number-input" value="-60" min="-80" max="-40" step="1">
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>⚡ Spike Generation</h3>
+                <div class="input-container">
+                    <label for="V_th">Threshold Potential <span class="unit-label">(mV)</span></label>
+                    <input type="number" id="V_th" class="number-input" value="-50" min="-60" max="-40" step="0.5">
+                </div>
+                <div class="input-container">
+                    <label for="Delta_T">Spike Slope Factor <span class="unit-label">(mV)</span></label>
+                    <input type="number" id="Delta_T" class="number-input" value="2.5" min="0.5" max="10" step="0.1">
+                </div>
+                <div class="input-container">
+                    <label for="V_reset">Reset Potential <span class="unit-label">(mV)</span></label>
+                    <input type="number" id="V_reset" class="number-input" value="-60" min="-80" max="-40" step="1">
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>🔄 Adaptation</h3>
+                <div class="input-container">
+                    <label for="a_param">Subthreshold Adaptation <span class="unit-label">(nS)</span></label>
+                    <input type="number" id="a_param" class="number-input" value="40" min="0" max="100" step="1">
+                </div>
+                <div class="input-container">
+                    <label for="b_param">Spike-triggered Adaptation <span class="unit-label">(pA)</span></label>
+                    <input type="number" id="b_param" class="number-input" value="5" min="0" max="50" step="0.5">
+                </div>
+                <div class="input-container">
+                    <label for="tau_w">Adaptation Time Constant <span class="unit-label">(ms)</span></label>
+                    <input type="number" id="tau_w" class="number-input" value="600" min="50" max="1000" step="10">
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>💉 Input Current</h3>
+                <div class="input-container">
+                    <label for="I_inj">Injection Current <span class="unit-label">(pA)</span></label>
+                    <input type="number" id="I_inj" class="number-input" value="0" min="-100" max="200" step="1">
+                </div>
+            </div>
+        </div>
+        
+        <div class="plots-grid">
+            <div class="plot-container">
+                <div id="phase_portrait"></div>
+            </div>
+            <div class="plot-container">
+                <div id="bifurcation_diagram"></div>
+            </div>
+            <div class="plot-container">
+                <div id="iv_curve"></div>
+            </div>
+            <div class="plot-container">
+                <div id="frequency_plot"></div>
+            </div>
+        </div>
+        
+        <div class="analysis-panel" id="analysis_panel">
+            <!-- Analysis results will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        // AdEx Model Implementation
+        class AdExAnalyzer {
+            constructor(params) {
+                this.params = params;
+                this.updateDerivedParams();
+            }
+            
+            updateDerivedParams() {
+                this.tau_m = this.params.C_m / this.params.g_L;
+            }
+            
+            // Lambert W approximation for fixed point calculation
+            lambertW(x, k = 0) {
+                if (x < -1/Math.E || x >= 0) return NaN;
+                
+                // Approximation for principal branch (k=0)
+                if (k === 0) {
+                    if (x >= -0.1) {
+                        return x * (1 - x + 1.5 * x * x);
+                    } else {
+                        let L1 = Math.log(-x);
+                        let L2 = Math.log(-L1);
+                        return L1 - L2 + L2/L1;
+                    }
+                }
+                // Approximation for k=-1 branch
+                else if (k === -1) {
+                    if (x >= -0.1) {
+                        let L1 = Math.log(-x);
+                        return L1 - Math.log(-L1);
+                    } else {
+                        let L1 = Math.log(-x);
+                        let L2 = Math.log(-L1);
+                        return L1 - L2 + L2/L1 - L2*(L2-2)/(2*L1*L1);
+                    }
+                }
+                return NaN;
+            }
+            
+            findFixedPoints(I_inj) {
+                const p = this.params;
+                const argument = (-1/(p.Delta_T * (p.g_L + p.a_param))) * 
+                    Math.exp((I_inj/(1 + p.a_param/p.g_L) + p.E_L - p.V_th) / p.Delta_T);
+                
+                const fixedPoints = [];
+                
+                if (argument >= -1/Math.E && argument < 0) {
+                    // V- using W0
+                    const W0 = this.lambertW(argument, 0);
+                    if (!isNaN(W0)) {
+                        const V_minus = p.E_L + I_inj/(p.g_L + p.a_param) - p.Delta_T * W0;
+                        fixedPoints.push(V_minus);
+                    }
+                    
+                    // V+ using W-1
+                    const W_1 = this.lambertW(argument, -1);
+                    if (!isNaN(W_1)) {
+                        const V_plus = p.E_L + I_inj/(p.g_L + p.a_param) - p.Delta_T * W_1;
+                        if (Math.abs(V_plus - (fixedPoints[0] || 0)) > 1e-6) {
+                            fixedPoints.push(V_plus);
+                        }
+                    }
+                }
+                
+                return fixedPoints.sort();
+            }
+            
+            calculateRheobase() {
+                const p = this.params;
+                const excitabilityRatio = (p.a_param/p.g_L) / (this.tau_m/p.tau_w);
+                
+                if ((p.a_param/p.g_L) < (this.tau_m/p.tau_w)) {
+                    // Type I - Equation 7
+                    const I_rh = (p.g_L + p.a_param) * (p.V_th - p.E_L - p.Delta_T + 
+                                  p.Delta_T * Math.log(1 + p.a_param/p.g_L));
+                    return {
+                        type: "Type I (Saddle-Node)",
+                        rheobase: I_rh,
+                        excitabilityRatio: excitabilityRatio
+                    };
+                } else {
+                    // Type II - Equation 8
+                    const I_rh = (p.g_L + p.a_param) * (p.V_th - p.E_L - p.Delta_T + 
+                                  p.Delta_T * Math.log(1 + this.tau_m/p.tau_w)) + 
+                                  p.Delta_T * p.g_L * (p.a_param/p.g_L - this.tau_m/p.tau_w);
+                    return {
+                        type: "Type II (Andronov-Hopf)",
+                        rheobase: I_rh,
+                        excitabilityRatio: excitabilityRatio
+                    };
+                }
+            }
+            
+            calculateJacobianEigenvalues(V_eq) {
+                const p = this.params;
+                
+                // Jacobian elements
+                const dF_dV = (1/p.C_m) * (-p.g_L + p.g_L * Math.exp((V_eq - p.V_th)/p.Delta_T));
+                const dF_dw = -1/p.C_m;
+                const dG_dV = p.a_param/p.tau_w;
+                const dG_dw = -1/p.tau_w;
+                
+                // Eigenvalues of 2x2 matrix
+                const trace = dF_dV + dG_dw;
+                const det = dF_dV * dG_dw - dF_dw * dG_dV;
+                const discriminant = trace * trace - 4 * det;
+                
+                if (discriminant >= 0) {
+                    const lambda1 = (trace + Math.sqrt(discriminant)) / 2;
+                    const lambda2 = (trace - Math.sqrt(discriminant)) / 2;
+                    return {
+                        eigenvalues: [lambda1, lambda2],
+                        isComplex: false,
+                        realPart: [lambda1, lambda2],
+                        imagPart: [0, 0]
+                    };
+                } else {
+                    const realPart = trace / 2;
+                    const imagPart = Math.sqrt(-discriminant) / 2;
+                    return {
+                        eigenvalues: [realPart + imagPart, realPart - imagPart],
+                        isComplex: true,
+                        realPart: [realPart, realPart],
+                        imagPart: [imagPart, -imagPart]
+                    };
+                }
+            }
+            
+            calculateOscillationFrequency(I_inj) {
+                const fixedPoints = this.findFixedPoints(I_inj);
+                if (fixedPoints.length === 0) return { frequency: 0, oscillates: false };
+                
+                const V_minus = Math.min(...fixedPoints);
+                const p = this.params;
+                
+                // Equation 10
+                const discriminant = (2*p.a_param)/(p.g_L*p.tau_w) - 
+                                   (2/this.tau_m)*Math.exp((V_minus - p.V_th)/p.Delta_T) - 
+                                   Math.pow(1 + this.tau_m/p.tau_w, 2);
+                
+                if (discriminant > 0) {
+                    const omega = Math.sqrt(discriminant);
+                    const frequency = omega / (2 * Math.PI);
+                    return { frequency: frequency, oscillates: true, discriminant: discriminant };
+                }
+                
+                return { frequency: 0, oscillates: false, discriminant: discriminant };
+            }
+            
+            analyzeOscillations(I_inj) {
+                const p = this.params;
+                
+                // Condition 9
+                const condition9 = (p.a_param/p.g_L) < (this.tau_m/(4*p.tau_w)) * 
+                                  Math.pow(1 - p.tau_w/this.tau_m, 2);
+                
+                const excitabilityType = (p.a_param/p.g_L) < (this.tau_m/p.tau_w) ? "Type I" : "Type II";
+                
+                let regime, description;
+                if (excitabilityType === "Type I") {
+                    if (!condition9) {
+                        regime = "Resonator";
+                        description = "Oscillates when I < I+";
+                    } else if (this.tau_m > p.tau_w) {
+                        regime = "Integrator";
+                        description = "Never oscillates near fixed point";
+                    } else {
+                        regime = "Mixed";
+                        description = "Oscillates when I- < I < I+";
+                    }
+                } else {
+                    if (!condition9) {
+                        regime = "Resonator";
+                        description = "Always oscillates for subthreshold I";
+                    } else {
+                        regime = "Mixed";
+                        description = "Oscillates only when I > I-";
+                    }
+                }
+                
+                const freqInfo = this.calculateOscillationFrequency(I_inj);
+                
+                return {
+                    condition9: condition9,
+                    excitabilityType: excitabilityType,
+                    regime: regime,
+                    description: description,
+                    ...freqInfo
+                };
+            }
+            
+            calculateIVCurve(V) {
+                const p = this.params;
+                return (p.a_param + p.g_L) * (V - p.E_L) - 
+                       p.g_L * p.Delta_T * Math.exp((V - p.V_th)/p.Delta_T);
+            }
+            
+            // Nullclines
+            calculateVNullcline(V) {
+                const p = this.params;
+                return -p.g_L * (V - p.E_L) + p.g_L * p.Delta_T * Math.exp((V - p.V_th)/p.Delta_T) + p.I_inj;
+            }
+            
+            calculateWNullcline(V) {
+                const p = this.params;
+                return p.a_param * (V - p.E_L);
+            }
+        }
+        
+        // Global analyzer instance
+        let analyzer;
+        
+        // Initialize parameters
+        const params = {
+            C_m: 200.0,
+            g_L: 10.0,
+            E_L: -60.0,
+            Delta_T: 2.5,
+            V_th: -50.0,
+            V_reset: -60.0,
+            tau_w: 600.0,
+            a_param: 40.0,
+            b_param: 5.0,
+            I_inj: 0
+        };
+        
+        // Update value displays (no longer needed since we're using direct input)
+        function updateValueDisplays() {
+            // Not needed anymore - values are directly in input fields
+        }
+        
+        // Set up event listeners for number inputs
+        function setupEventListeners() {
+            for (const param in params) {
+                const input = document.getElementById(param);
+                if (input) {
+                    // Update on input change
+                    input.addEventListener('input', function() {
+                        const value = parseFloat(this.value);
+                        if (!isNaN(value)) {
+                            params[param] = value;
+                            updateAnalysis();
+                        }
+                    });
+                    
+                    // Update on Enter key
+                    input.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            const value = parseFloat(this.value);
+                            if (!isNaN(value)) {
+                                params[param] = value;
+                                updateAnalysis();
+                                this.blur(); // Remove focus
+                            }
+                        }
+                    });
+                    
+                    // Validate on blur
+                    input.addEventListener('blur', function() {
+                        const value = parseFloat(this.value);
+                        if (!isNaN(value)) {
+                            params[param] = value;
+                            updateAnalysis();
+                        } else {
+                            // Reset to current param value if invalid
+                            this.value = params[param];
+                        }
+                    });
+                }
+            }
+        }
+        
+        // Create phase portrait
+        function createPhasePortrait() {
+            const V_range = [];
+            const w_range = [];
+            const V_null = [];
+            const w_null = [];
+            
+            // Calculate nullclines
+            for (let V = -80; V <= -40; V += 0.5) {
+                V_range.push(V);
+                V_null.push(analyzer.calculateVNullcline(V));
+                w_null.push(analyzer.calculateWNullcline(V));
+            }
+            
+            // Find fixed points
+            const fixedPoints = analyzer.findFixedPoints(params.I_inj);
+            const fpV = [], fpW = [], fpStability = [];
+            
+            fixedPoints.forEach(V_eq => {
+                const w_eq = params.a_param * (V_eq - params.E_L);
+                const eigenInfo = analyzer.calculateJacobianEigenvalues(V_eq);
+                const isStable = eigenInfo.realPart.every(r => r < 0);
+                
+                fpV.push(V_eq);
+                fpW.push(w_eq);
+                fpStability.push(isStable);
+            });
+            
+            const traces = [
+                {
+                    x: V_range,
+                    y: V_null,
+                    mode: 'lines',
+                    name: 'V-nullcline',
+                    line: { color: 'cyan', width: 3 }
+                },
+                {
+                    x: V_range,
+                    y: w_null,
+                    mode: 'lines',
+                    name: 'w-nullcline',
+                    line: { color: 'yellow', width: 3 }
+                }
+            ];
+            
+            // Add fixed points
+            const stableFP = fpV.filter((v, i) => fpStability[i]);
+            const unstableFP = fpV.filter((v, i) => !fpStability[i]);
+            const stableW = fpW.filter((w, i) => fpStability[i]);
+            const unstableW = fpW.filter((w, i) => !fpStability[i]);
+            
+            if (stableFP.length > 0) {
+                traces.push({
+                    x: stableFP,
+                    y: stableW,
+                    mode: 'markers',
+                    name: 'Stable FP',
+                    marker: { size: 12, color: 'lime', symbol: 'circle' }
+                });
+            }
+            
+            if (unstableFP.length > 0) {
+                traces.push({
+                    x: unstableFP,
+                    y: unstableW,
+                    mode: 'markers',
+                    name: 'Unstable FP',
+                    marker: { size: 12, color: 'red', symbol: 'x' }
+                });
+            }
+            
+            const layout = {
+                title: 'Phase Portrait',
+                xaxis: { title: 'V (mV)', color: 'white' },
+                yaxis: { title: 'w (pA)', color: 'white' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0.2)',
+                font: { color: 'white' },
+                showlegend: true,
+                legend: { bgcolor: 'rgba(0,0,0,0.3)' }
+            };
+            
+            Plotly.newPlot('phase_portrait', traces, layout, {displayModeBar: false});
+        }
+        
+        // Create bifurcation diagram
+        function createBifurcationDiagram() {
+            const I_range = [];
+            const V_stable = [], V_unstable = [];
+            
+            const rheobase = analyzer.calculateRheobase();
+            const I_max = Math.max(rheobase.rheobase + 50, 100);
+            
+            for (let I = -100; I <= I_max; I += 2) {
+                I_range.push(I);
+                const fps = analyzer.findFixedPoints(I);
+                
+                fps.forEach(V_eq => {
+                    const eigenInfo = analyzer.calculateJacobianEigenvalues(V_eq);
+                    const isStable = eigenInfo.realPart.every(r => r < 0);
+                    
+                    if (isStable) {
+                        V_stable.push({ I: I, V: V_eq });
+                    } else {
+                        V_unstable.push({ I: I, V: V_eq });
+                    }
+                });
+            }
+            
+            const traces = [];
+            
+            if (V_stable.length > 0) {
+                traces.push({
+                    x: V_stable.map(p => p.I),
+                    y: V_stable.map(p => p.V),
+                    mode: 'markers',
+                    name: 'Stable',
+                    marker: { size: 4, color: 'cyan' }
+                });
+            }
+            
+            if (V_unstable.length > 0) {
+                traces.push({
+                    x: V_unstable.map(p => p.I),
+                    y: V_unstable.map(p => p.V),
+                    mode: 'markers',
+                    name: 'Unstable',
+                    marker: { size: 4, color: 'red' }
+                });
+            }
+            
+            // Add rheobase line
+            traces.push({
+                x: [rheobase.rheobase, rheobase.rheobase],
+                y: [-80, -40],
+                mode: 'lines',
+                name: `Rheobase (${rheobase.rheobase.toFixed(1)} pA)`,
+                line: { color: 'lime', width: 2, dash: 'dash' }
+            });
+            
+            // Current injection indicator
+            traces.push({
+                x: [params.I_inj, params.I_inj],
+                y: [-80, -40],
+                mode: 'lines',
+                name: `Current I = ${params.I_inj} pA`,
+                line: { color: 'yellow', width: 3 }
+            });
+            
+            const layout = {
+                title: 'Bifurcation Diagram',
+                xaxis: { title: 'I (pA)', color: 'white' },
+                yaxis: { title: 'V equilibrium (mV)', color: 'white' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0.2)',
+                font: { color: 'white' },
+                showlegend: true,
+                legend: { bgcolor: 'rgba(0,0,0,0.3)' }
+            };
+            
+            Plotly.newPlot('bifurcation_diagram', traces, layout, {displayModeBar: false});
+        }
+        
+        // Create I-V curve
+        function createIVCurve() {
+            const V_range = [];
+            const I_values = [];
+            
+            for (let V = -80; V <= -40; V += 0.2) {
+                V_range.push(V);
+                I_values.push(analyzer.calculateIVCurve(V));
+            }
+            
+            const traces = [
+                {
+                    x: V_range,
+                    y: I_values,
+                    mode: 'lines',
+                    name: 'I-V Curve',
+                    line: { color: 'cyan', width: 3 }
+                },
+                {
+                    x: [-80, -40],
+                    y: [0, 0],
+                    mode: 'lines',
+                    name: 'I = 0',
+                    line: { color: 'white', width: 1, dash: 'dash' }
+                },
+                {
+                    x: [params.V_th, params.V_th],
+                    y: [Math.min(...I_values), Math.max(...I_values)],
+                    mode: 'lines',
+                    name: `V_th = ${params.V_th} mV`,
+                    line: { color: 'red', width: 2, dash: 'dash' }
+                }
+            ];
+            
+            const layout = {
+                title: 'I-V Relationship',
+                xaxis: { title: 'V (mV)', color: 'white' },
+                yaxis: { title: 'I (pA)', color: 'white' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0.2)',
+                font: { color: 'white' },
+                showlegend: true,
+                legend: { bgcolor: 'rgba(0,0,0,0.3)' }
+            };
+            
+            Plotly.newPlot('iv_curve', traces, layout, {displayModeBar: false});
+        }
+        
+        // Create frequency plot
+        function createFrequencyPlot() {
+            const rheobase = analyzer.calculateRheobase();
+            const I_range = [];
+            const frequencies = [];
+            
+            for (let I = -50; I < rheobase.rheobase - 1; I += 1) {
+                I_range.push(I);
+                const freqInfo = analyzer.calculateOscillationFrequency(I);
+                frequencies.push(freqInfo.frequency);
+            }
+            
+            const traces = [
+                {
+                    x: I_range,
+                    y: frequencies,
+                    mode: 'lines',
+                    name: 'Oscillation Frequency',
+                    line: { color: 'magenta', width: 3 }
+                },
+                {
+                    x: [params.I_inj, params.I_inj],
+                    y: [0, Math.max(...frequencies) || 1],
+                    mode: 'lines',
+                    name: `Current I = ${params.I_inj} pA`,
+                    line: { color: 'yellow', width: 3 }
+                },
+                {
+                    x: [rheobase.rheobase, rheobase.rheobase],
+                    y: [0, Math.max(...frequencies) || 1],
+                    mode: 'lines',
+                    name: `Rheobase = ${rheobase.rheobase.toFixed(1)} pA`,
+                    line: { color: 'lime', width: 2, dash: 'dash' }
+                }
+            ];
+            
+            const layout = {
+                title: 'Oscillation Frequency (Equation 10)',
+                xaxis: { title: 'I (pA)', color: 'white' },
+                yaxis: { title: 'Frequency (Hz)', color: 'white' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0.2)',
+                font: { color: 'white' },
+                showlegend: true,
+                legend: { bgcolor: 'rgba(0,0,0,0.3)' }
+            };
+            
+            Plotly.newPlot('frequency_plot', traces, layout, {displayModeBar: false});
+        }
+        
+        // Update analysis panel
+        function updateAnalysisPanel() {
+            const rheobase = analyzer.calculateRheobase();
+            const oscillations = analyzer.analyzeOscillations(params.I_inj);
+            const fixedPoints = analyzer.findFixedPoints(params.I_inj);
+            
+            // Calculate rescaled parameters (Equation 5)
+            const tau_w_bar = params.tau_w / analyzer.tau_m;
+            const a_bar = params.a_param / params.g_L;
+            const b_bar = params.b_param / (params.g_L * params.Delta_T);
+            const V_r_bar = (params.V_reset - params.V_th) / params.Delta_T;
+            
+            // Integration analysis
+            let integrationInfo = '';
+            if (fixedPoints.length > 0) {
+                const eigenInfo = analyzer.calculateJacobianEigenvalues(fixedPoints[0]);
+                if (eigenInfo.isComplex) {
+                    const tau_eff = 2 * analyzer.tau_m * params.tau_w / (analyzer.tau_m + params.tau_w);
+                    integrationInfo = `
+  Mode: <span class="highlight">Resonator</span>
+  Effective τ (Eq. 11): <span class="highlight">${tau_eff.toFixed(2)} ms</span>
+  Eigenvalues: ${eigenInfo.realPart[0].toFixed(3)} ± ${eigenInfo.imagPart[0].toFixed(3)}i`;
+                } else {
+                    const tau1 = -1/eigenInfo.realPart[0];
+                    const tau2 = -1/eigenInfo.realPart[1];
+                    integrationInfo = `
+  Mode: <span class="highlight">Integrator</span>
+  Fast τ: <span class="highlight">${Math.min(tau1, tau2).toFixed(2)} ms</span>
+  Slow τ: <span class="highlight">${Math.max(tau1, tau2).toFixed(2)} ms</span>`;
+                }
+            }
+            
+            // Voltage threshold calculation
+            let V_slow_threshold;
+            if ((params.a_param/params.g_L) < (analyzer.tau_m/params.tau_w)) {
+                V_slow_threshold = params.V_th + params.Delta_T * Math.log(1 + params.a_param/params.g_L);
+            } else {
+                V_slow_threshold = params.V_th + params.Delta_T * Math.log(1 + analyzer.tau_m/params.tau_w);
+            }
+            
+            // After-potential analysis
+            const w_after_spike = params.a_param * (params.V_reset - params.E_L) + params.b_param;
+            const V_nullcline_at_reset = analyzer.calculateVNullcline(params.V_reset);
+            const afterPotentialType = w_after_spike > V_nullcline_at_reset ? "Broad" : "Sharp";
+            
+            const analysisHTML = `
+                <div class="analysis-section">
+                    <h4>📐 Rescaled Parameters (Equation 5)</h4>
+                    <div>τ̄_w = τ_w/τ_m = <span class="highlight">${tau_w_bar.toFixed(3)}</span></div>
+                    <div>ā = a/g_L = <span class="highlight">${a_bar.toFixed(3)}</span></div>
+                    <div>b̄ = b/(g_L·ΔT) = <span class="highlight">${b_bar.toFixed(3)}</span></div>
+                    <div>V̄_r = (V_r - V_T)/ΔT = <span class="highlight">${V_r_bar.toFixed(3)}</span></div>
+                    <div>τ_m = C/g_L = <span class="highlight">${analyzer.tau_m.toFixed(2)} ms</span></div>
+                </div>
+                
+                <div class="analysis-section">
+                    <h4>⚡ Excitability & Rheobase (Equations 7 & 8)</h4>
+                    <div>Type: <span class="highlight">${rheobase.type}</span></div>
+                    <div>Ratio (a/g_L)/(τ_m/τ_w): <span class="highlight">${rheobase.excitabilityRatio.toFixed(4)}</span></div>
+                    <div>Rheobase Current: <span class="highlight">${rheobase.rheobase.toFixed(2)} pA</span></div>
+                    <div>Voltage Threshold (slow): <span class="highlight">${V_slow_threshold.toFixed(2)} mV</span></div>
+                </div>
+                
+                <div class="analysis-section">
+                    <h4>🔄 Fixed Points (Equation 6 - Lambert W)</h4>
+                    ${fixedPoints.length > 0 ? 
+                        fixedPoints.map((V, i) => {
+                            const w = params.a_param * (V - params.E_L);
+                            const eigenInfo = analyzer.calculateJacobianEigenvalues(V);
+                            const stability = eigenInfo.realPart.every(r => r < 0) ? "Stable" : "Saddle";
+                            return `<div>V${i === 0 ? '⁻' : '⁺'} = <span class="highlight">${V.toFixed(3)} mV</span>, w = ${w.toFixed(3)} pA [${stability}]</div>`;
+                        }).join('') 
+                        : '<div class="warning">No fixed points found</div>'
+                    }
+                </div>
+                
+                <div class="analysis-section">
+                    <h4>🌊 Oscillations (Equations 9-11)</h4>
+                    <div>Condition (9): <span class="${oscillations.condition9 ? 'highlight' : 'warning'}">${oscillations.condition9}</span></div>
+                    <div>Excitability: <span class="highlight">${oscillations.excitabilityType}</span></div>
+                    <div>Regime: <span class="highlight">${oscillations.regime}</span></div>
+                    <div>Description: ${oscillations.description}</div>
+                    ${oscillations.oscillates ? 
+                        `<div>Frequency (Eq. 10): <span class="highlight">${oscillations.frequency.toFixed(3)} Hz</span></div>` :
+                        '<div class="warning">No oscillations at current I</div>'
+                    }
+                </div>
+                
+                <div class="analysis-section">
+                    <h4>⏱️ Input Integration</h4>
+                    ${integrationInfo}
+                </div>
+                
+                <div class="analysis-section">
+                    <h4>🔄 After-Potential Analysis</h4>
+                    <div>Type: <span class="highlight">${afterPotentialType}</span></div>
+                    <div>w after spike: <span class="highlight">${w_after_spike.toFixed(2)} pA</span></div>
+                    <div>V-nullcline at reset: <span class="highlight">${V_nullcline_at_reset.toFixed(2)} pA</span></div>
+                    <div>${afterPotentialType === "Broad" ? 
+                        "V first decreases then increases (reset above V-nullcline)" :
+                        "V increases monotonically (reset below V-nullcline)"
+                    }</div>
+                </div>
+                
+                <div class="analysis-section">
+                    <h4>🎯 Current Analysis</h4>
+                    <div>Injection Current: <span class="highlight">${params.I_inj} pA</span></div>
+                    <div>Relative to Rheobase: <span class="${params.I_inj < rheobase.rheobase ? 'highlight' : 'warning'}">
+                        ${params.I_inj < rheobase.rheobase ? 'Subthreshold' : 'Suprathreshold'}
+                    </span></div>
+                    <div>Distance to Rheobase: <span class="highlight">${(rheobase.rheobase - params.I_inj).toFixed(1)} pA</span></div>
+                </div>
+            `;
+            
+            document.getElementById('analysis_panel').innerHTML = analysisHTML;
+        }
+        
+        // Main update function
+        function updateAnalysis() {
+            analyzer = new AdExAnalyzer(params);
+            
+            createPhasePortrait();
+            createBifurcationDiagram();
+            createIVCurve();
+            createFrequencyPlot();
+            updateAnalysisPanel();
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            setupEventListeners();
+            updateAnalysis();
+            
+            // Add smooth animations to input fields
+            document.querySelectorAll('.number-input').forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.style.transform = 'scale(1.02)';
+                });
+                
+                input.addEventListener('blur', function() {
+                    this.style.transform = 'scale(1)';
+                });
+            });
+        });
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'r' || e.key === 'R') {
+                // Reset to default parameters
+                params.C_m = 200.0;
+                params.g_L = 10.0;
+                params.E_L = -60.0;
+                params.Delta_T = 2.5;
+                params.V_th = -50.0;
+                params.V_reset = -60.0;
+                params.tau_w = 600.0;
+                params.a_param = 40.0;
+                params.b_param = 5.0;
+                params.I_inj = 0;
+                
+                // Update input fields
+                for (const param in params) {
+                    const input = document.getElementById(param);
+                    if (input) {
+                        input.value = params[param];
+                    }
+                }
+                
+                updateAnalysis();
+            }
+        });
+    </script>
+</body>
+</html>
